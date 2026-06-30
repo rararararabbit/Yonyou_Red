@@ -60,42 +60,81 @@ function stripHtml(html: string) {
   return decodeHtml(html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
 }
 
-function parseXiumiusHtml(raHtml: string): ContentBlock[] {
+function isXiumiusRawImageImg(tag: string): boolean {
+  const cls = (tag.match(/class=["']([^"']*)["']/i) || [])[1] || "";
+  return /tn-image-presenter/.test(cls) && /raw-image/.test(cls);
+}
+
+/** 秀米排版模板自带的装饰图（非正文实拍），路径含 /xmi/ua/19KxR/ */
+function isXiumiusTemplatePackImage(src: string): boolean {
+  return /\/xmi\/ua\/19KxR\//i.test(src);
+}
+
+function normalizeImgSrc(src: string) {
+  let normalized = src;
+  if (normalized.startsWith("//")) normalized = "https:" + normalized;
+  return normalizeExternalImageUrl(normalized);
+}
+
+function shouldIncludeXiumiusImg(tag: string, rawImageOnly: boolean): boolean {
+  if (!rawImageOnly) return true;
+  return isXiumiusRawImageImg(tag);
+}
+
+function shouldIncludeXiumiusSrc(src: string, rawImageOnly: boolean): boolean {
+  if (!rawImageOnly) return true;
+  return !isXiumiusTemplatePackImage(src);
+}
+
+function parseXiumiusHtmlPass(raHtml: string, rawImageOnly: boolean): ContentBlock[] {
   const contentList: ContentBlock[] = [];
-  const pRegex = /<p[^>]*>([\s\S]*?)<\/p>|<img[^>]+src=["']([^"']+)["']/gi;
+  const tokenRegex = /<p[^>]*>([\s\S]*?)<\/p>|<img[^>]+>/gi;
   let match: RegExpExecArray | null;
-  while ((match = pRegex.exec(raHtml)) !== null) {
-    if (match[1]) {
-      const pContent = match[1];
-      const imgInP = pContent.match(/<img[^>]+src=["']([^"']+)["']/i);
-      if (imgInP) {
-        let src = imgInP[1];
-        if (src.startsWith("//")) src = "https:" + src;
-        contentList.push({ type: "image", value: normalizeExternalImageUrl(src) });
-        continue;
-      }
+  while ((match = tokenRegex.exec(raHtml)) !== null) {
+    if (match[0].startsWith("<img")) {
+      if (!shouldIncludeXiumiusImg(match[0], rawImageOnly)) continue;
+      const srcMatch = match[0].match(/src=["']([^"']+)["']/i);
+      if (!srcMatch) continue;
+      if (!shouldIncludeXiumiusSrc(srcMatch[1], rawImageOnly)) continue;
+      contentList.push({ type: "image", value: normalizeImgSrc(srcMatch[1]) });
+      continue;
+    }
 
-      const text = stripHtml(pContent);
-      if (!text || text === "*" || text === "•" || text === "·") continue;
+    const pContent = match[1];
+    const imgTagMatch = pContent.match(/<img[^>]+>/i);
+    if (imgTagMatch) {
+      if (!shouldIncludeXiumiusImg(imgTagMatch[0], rawImageOnly)) continue;
+      const srcMatch = imgTagMatch[0].match(/src=["']([^"']+)["']/i);
+      if (!srcMatch) continue;
+      if (!shouldIncludeXiumiusSrc(srcMatch[1], rawImageOnly)) continue;
+      contentList.push({ type: "image", value: normalizeImgSrc(srcMatch[1]) });
+      continue;
+    }
 
-      const isStrong =
-        pContent.includes("<strong") ||
-        pContent.includes("font-weight: bold") ||
-        pContent.includes("font-weight:bold");
-      if (isStrong && text.length < 50) {
-        contentList.push({ type: "subheading", value: text });
-      } else if (text.startsWith("*") && text.endsWith("*")) {
-        contentList.push({ type: "quote", value: text.slice(1, -1) });
-      } else {
-        contentList.push({ type: "paragraph", value: text });
-      }
-    } else if (match[2]) {
-      let src = match[2];
-      if (src.startsWith("//")) src = "https:" + src;
-      contentList.push({ type: "image", value: normalizeExternalImageUrl(src) });
+    const text = stripHtml(pContent);
+    if (!text || text === "*" || text === "•" || text === "·") continue;
+
+    const isStrong =
+      pContent.includes("<strong") ||
+      pContent.includes("font-weight: bold") ||
+      pContent.includes("font-weight:bold");
+    if (isStrong && text.length < 50) {
+      contentList.push({ type: "subheading", value: text });
+    } else if (text.startsWith("*") && text.endsWith("*")) {
+      contentList.push({ type: "quote", value: text.slice(1, -1) });
+    } else {
+      contentList.push({ type: "paragraph", value: text });
     }
   }
   return contentList;
+}
+
+function parseXiumiusHtml(raHtml: string): ContentBlock[] {
+  const rawImageContent = parseXiumiusHtmlPass(raHtml, true);
+  if (rawImageContent.some((block) => block.type === "image")) {
+    return rawImageContent;
+  }
+  return parseXiumiusHtmlPass(raHtml, false);
 }
 
 async function fetchXiumiusContent(url: string): Promise<ContentBlock[]> {

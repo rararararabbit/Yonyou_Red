@@ -696,7 +696,7 @@ export default function App() {
 
         {/* FOOTER */}
         <footer className="py-6 border-t border-gray-200/50 text-center flex flex-col sm:flex-row justify-between items-center gap-2">
-          <p className="editorial-note text-red-primary/60">融物理空间与AI智慧 · 共筑指尖智慧党建</p>
+          <p className="editorial-note text-red-primary/60">融物理空间与AI赋能 · 共筑指尖智慧党建</p>
           <p className="editorial-note">版面设计：用户体验部</p>
         </footer>
 
