@@ -3,6 +3,7 @@ name: Deploy to Server
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: deploy-yonyou-red
@@ -12,7 +13,25 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pack source (exclude node_modules / .git / dist)
+        run: |
+          tar --exclude=node_modules --exclude=.git --exclude=dist --exclude=.env \
+            -czf deploy.tar.gz .
+
+      - name: Upload to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: deploy.tar.gz
+          target: /tmp
+
+      - name: Extract, build and restart
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -21,6 +40,12 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           script_stop: true
           script: |
-            export APP_DIR="${{ secrets.DEPLOY_PATH || '/var/www/Yonyou_Red' }}"
+            set -euo pipefail
+            APP_DIR="${{ secrets.DEPLOY_PATH || '/var/www/Yonyou_Red' }}"
+            mkdir -p "$APP_DIR"
+            tar -xzf /tmp/deploy.tar.gz -C "$APP_DIR"
+            rm -f /tmp/deploy.tar.gz
+            export APP_DIR
             export BASE_PATH="/Yonyou_red"
-            bash "$APP_DIR/deploy/deploy.sh"
+            export NPM_REGISTRY="https://registry.npmmirror.com"
+            bash "$APP_DIR/deploy/build-on-server.sh"
