@@ -1,5 +1,6 @@
 import articlesData from "./generated/articles.json";
 import magazineMeta from "./generated/magazine-meta.json";
+import { withBasePath } from "./lib/base-path";
 
 export interface Article {
   id: string;
@@ -79,14 +80,14 @@ export const commonInfoSections: CommonInfoSection[] = [
     id: "party-group",
     title: "三、加入党委群（友空间）",
     type: "image",
-    imageUrl: "/common-info/party-group-qr.png",
+    imageUrl: withBasePath("/common-info/party-group-qr.png"),
     imageAlt: "用友党委全体党员群二维码",
   },
   {
     id: "party-oath",
     title: "四、入党誓词",
     type: "image",
-    imageUrl: "/common-info/party-oath.png",
+    imageUrl: withBasePath("/common-info/party-oath.png"),
     imageAlt: "中国共产党入党誓词",
   },
   {

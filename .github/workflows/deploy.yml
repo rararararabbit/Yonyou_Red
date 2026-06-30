@@ -1,0 +1,26 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-yonyou-red
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            export APP_DIR="${{ secrets.DEPLOY_PATH || '/var/www/Yonyou_Red' }}"
+            export BASE_PATH="/Yonyou_red"
+            bash "$APP_DIR/deploy/deploy.sh"

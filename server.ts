@@ -8,8 +8,12 @@ import { getConstitutionHtml, getTransferGuideHtml } from "./lib/common-info-fet
 
 dotenv.config();
 
+const BASE_PATH = (process.env.BASE_PATH || "").replace(/\/$/, "");
+const PORT = Number(process.env.PORT) || 3000;
+const mountPath = BASE_PATH || "/";
+
 const app = express();
-const PORT = 3000;
+const router = express.Router();
 
 app.use(express.json());
 
@@ -36,7 +40,7 @@ if (apiKey && apiKey !== "MY_GEMINI_API_KEY") {
 }
 
 // 1. Health check & configuration status
-app.get("/api/health", (req, res) => {
+router.get("/api/health", (req, res) => {
   res.json({ 
     status: "ok", 
     aiConfigured: aiClient !== null,
@@ -45,7 +49,7 @@ app.get("/api/health", (req, res) => {
 });
 
 // 1c. Common info remote content
-app.get("/api/common-info/constitution", async (_req, res) => {
+router.get("/api/common-info/constitution", async (_req, res) => {
   try {
     const html = await getConstitutionHtml();
     res.json({ ok: true, html });
@@ -55,7 +59,7 @@ app.get("/api/common-info/constitution", async (_req, res) => {
   }
 });
 
-app.get("/api/common-info/transfer-guide", async (_req, res) => {
+router.get("/api/common-info/transfer-guide", async (_req, res) => {
   try {
     const html = await getTransferGuideHtml();
     res.json({ ok: true, html });
@@ -66,7 +70,7 @@ app.get("/api/common-info/transfer-guide", async (_req, res) => {
 });
 
 // 1b. Fetch and parse external article from Xiumius
-app.get("/api/articles/red-sail-1", async (req, res) => {
+router.get("/api/articles/red-sail-1", async (req, res) => {
   const targetUrl = "https://c.xiumius.cn/board/v5/3x9y0/689978552";
   
   const defaultArticleContent = [
@@ -357,7 +361,7 @@ app.get("/api/articles/red-sail-1", async (req, res) => {
 });
 
 // 2. Red Sail AI Mentor - Interactive Assistant Chat
-app.post("/api/ai/assistant", async (req, res) => {
+router.post("/api/ai/assistant", async (req, res) => {
   const { articleId, title, summary, message, history = [] } = req.body;
 
   if (!message) {
@@ -409,7 +413,7 @@ app.post("/api/ai/assistant", async (req, res) => {
 });
 
 // 3. AI Study Notes Generator
-app.post("/api/ai/generate-notes", async (req, res) => {
+router.post("/api/ai/generate-notes", async (req, res) => {
   const { title, summary, content } = req.body;
 
   if (!title) {
@@ -478,7 +482,7 @@ app.post("/api/ai/generate-notes", async (req, res) => {
 });
 
 // 4. Study reflection submission (互动研学角 · 发邮件)
-app.post("/api/study-reflection", async (req, res) => {
+router.post("/api/study-reflection", async (req, res) => {
   const name = String(req.body.name || "").trim() || "匿名读者";
   const comment = String(req.body.comment || "").trim();
   const title = String(req.body.title || "").trim() || "红帆领航电子杂志";
@@ -509,7 +513,7 @@ app.post("/api/study-reflection", async (req, res) => {
 });
 
 // 5. Red Mentor Comment Review (红色导师点评)
-app.post("/api/ai/reply-comment", async (req, res) => {
+router.post("/api/ai/reply-comment", async (req, res) => {
   const { title, username, comment } = req.body;
 
   if (!comment) {
@@ -581,23 +585,28 @@ function simulateCommentReview(username: string, comment: string, res: any) {
 // Integration of Vite Middleware and Static Assets
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const viteBase = mountPath === "/" ? "/" : `${mountPath}/`;
     const vite = await createViteServer({
+      base: viteBase,
       server: { middlewareMode: true },
       appType: "spa",
     });
-    app.use(vite.middlewares);
-    console.log("Vite Development Middleware loaded");
+    app.use(mountPath, vite.middlewares);
+    console.log(`Vite Development Middleware loaded at ${mountPath}`);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(mountPath, express.static(distPath));
+    router.get("*", (_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
     });
-    console.log("Production static asset serving configured");
+    console.log(`Production static asset serving configured at ${mountPath}`);
   }
 
+  app.use(mountPath, router);
+
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Express custom full-stack server running on http://localhost:${PORT}`);
+    const suffix = BASE_PATH ? BASE_PATH : "";
+    console.log(`Express server running on http://localhost:${PORT}${suffix}`);
   });
 }
 

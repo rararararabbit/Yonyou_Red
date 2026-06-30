@@ -10,6 +10,7 @@ import {
 import { articles, magazineInfo, magazineAssets, Article } from "./data";
 import ArticleDetail from "./components/ArticleDetail";
 import CommonInfoPanel from "./components/CommonInfoPanel";
+import { apiUrl } from "./lib/base-path";
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<"home" | "red-sail" | "light-shadow" | "comments" | "info">("home");
@@ -73,7 +74,7 @@ export default function App() {
     setCommentingLoading(true);
 
     try {
-      const emailRes = await fetch("/api/study-reflection", {
+      const emailRes = await fetch(apiUrl("/api/study-reflection"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -99,7 +100,7 @@ export default function App() {
       setComments(prev => [tempComment, ...prev]);
       setNewCommentText("");
 
-      const response = await fetch("/api/ai/reply-comment", {
+      const response = await fetch(apiUrl("/api/ai/reply-comment"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

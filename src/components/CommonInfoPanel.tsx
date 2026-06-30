@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ClipboardList, ChevronRight } from "lucide-react";
 import { commonInfoSections, type CommonInfoSection } from "../data";
+import { apiUrl } from "../lib/base-path";
 
 function SectionCard({
   section,
@@ -52,7 +53,7 @@ function RemoteContentBlock({
     setLoading(true);
     setError("");
 
-    fetch(`/api/common-info/${source}`)
+    fetch(apiUrl(`/api/common-info/${source}`))
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok || !data.ok) {
