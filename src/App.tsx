@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   BookOpen, Image as ImageIcon, MessageSquare, Flame, 
   Search, ArrowRight, Heart, Share2, Award, Compass, 
-  HelpCircle, ChevronRight, CheckCircle2, ThumbsUp, Send, Sparkles, LogIn,
+  HelpCircle, ChevronRight, CheckCircle2, Send, Sparkles, LogIn,
   ClipboardList
 } from "lucide-react";
 
@@ -18,24 +18,6 @@ export default function App() {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   
   // Custom Comment State
-  const [comments, setComments] = useState([
-    {
-      id: "c1",
-      username: "李向阳（研发部党员）",
-      comment: "看了‘AI+党建’实验室挂牌这一篇，非常受鼓舞！作为技术线的开发人员，以前总觉得党建和敲代码离得挺远。现在发现，通过AI工具优化日常业务瓶颈、带头做技术攻关，就是最接地气的红色实践。为我们支部的创新点赞！",
-      date: "2026-06-25 09:32",
-      mentorReply: "🚩 红帆导师点评：李向阳同志，能有这样的体悟说明你不仅用心研读了文章，而且对自己的岗位职责有着深刻的自觉。‘党员突击，技术攻关’不仅是一个口号，更是我们攻坚核心瓶颈的底气所在。期待你在新一轮产品架构重构中，用实际的代码量和攻坚效率发挥好先锋作用！",
-      likes: 18
-    },
-    {
-      id: "c2",
-      username: "张丽娜（人力资源部）",
-      comment: "七一实地研学的照片拍得太棒了，尤其是宣誓的那张，特别有朝气。作为入党积极分子，这次读书沙龙我也参与了，在交流中感受到了大家对于科技底线与社会伦理的讨论深度，收获非常多，期待加入这个温暖强大的集体！",
-      date: "2026-06-24 16:15",
-      mentorReply: "👍 红帆导师点评：张丽娜同志，欢迎你积极向组织靠拢。读书不仅能明理，更能修身。在智慧时代，坚守‘以人为本’的初心和伦理底线就是我们党性修养的体现。期待你不断提升理论修养与业务本领，争取早日成为正式的党员先锋！",
-      likes: 12
-    }
-  ]);
   const [newCommentName, setNewCommentName] = useState("");
   const [newCommentText, setNewCommentText] = useState("");
   const [commentingLoading, setCommentingLoading] = useState(false);
@@ -74,8 +56,6 @@ export default function App() {
     const username = newCommentName.trim() || "匿名读者";
     const commentContent = newCommentText.trim();
     const articleTitle = selectedArticle?.title || magazineInfo.title;
-    const commentId = `comment-${Date.now()}`;
-    const commentDate = new Date().toISOString().replace('T', ' ').slice(0, 16);
 
     setCommentSubmitError("");
     setCommentSubmitSuccess("");
@@ -96,35 +76,9 @@ export default function App() {
         throw new Error(emailData.message || "提交失败，请稍后重试");
       }
 
-      const tempComment = {
-        id: commentId,
-        username: username,
-        comment: commentContent,
-        date: commentDate,
-        mentorReply: "",
-        likes: 0
-      };
-
-      setComments(prev => [tempComment, ...prev]);
       setNewCommentText("");
+      setNewCommentName("");
       setCommentSubmitSuccess("提交成功");
-
-      const response = await fetch(apiUrl("/api/ai/reply-comment"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: articleTitle,
-          username: username,
-          comment: commentContent
-        })
-      });
-      const data = await response.json();
-      
-      if (data.reply) {
-        setComments(prev => 
-          prev.map(c => c.id === commentId ? { ...c, mentorReply: data.reply } : c)
-        );
-      }
     } catch (err) {
       console.error("思想感悟提交失败:", err);
       setCommentSubmitError(
@@ -133,13 +87,6 @@ export default function App() {
     } finally {
       setCommentingLoading(false);
     }
-  };
-
-  // Like a comment
-  const handleLikeComment = (cId: string) => {
-    setComments(prev => 
-      prev.map(c => c.id === cId ? { ...c, likes: c.likes + 1 } : c)
-    );
   };
 
   // Render Mobile Web Client layout
@@ -586,73 +533,6 @@ export default function App() {
                     {commentingLoading ? "提交中..." : "提交思想感悟"}
                   </button>
                 </form>
-
-                {/* Comment list */}
-                <div className="space-y-3.5 pt-2">
-                  <h3 className="text-[10px] font-bold text-gray-400 tracking-widest uppercase pl-1 flex items-center gap-1.5">
-                    <span className="w-1.5 h-3.5 bg-red-primary rounded-none"></span>
-                    优秀研学心得 / SHARING
-                  </h3>
-
-                  <div className="space-y-4">
-                    {comments.map((c) => (
-                      <div 
-                        key={c.id} 
-                        className="bg-white border border-gray-200 rounded-sm p-4 shadow-sm space-y-3 font-sans"
-                      >
-                        {/* Author info */}
-                        <div className="flex items-start justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-none bg-red-primary border border-red-primary/15 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                              {c.username.slice(0, 1)}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-800 font-serif">{c.username}</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">{c.date}</p>
-                            </div>
-                          </div>
-                          <button
-                            id={`like-comment-btn-${c.id}`}
-                            onClick={() => handleLikeComment(c.id)}
-                            className="flex items-center gap-1 text-gray-400 hover:text-red-primary transition-colors text-[10px]"
-                          >
-                            <ThumbsUp className="w-3.5 h-3.5" />
-                            <span>{c.likes}</span>
-                          </button>
-                        </div>
-
-                        {/* Comment text */}
-                        <p className="text-xs text-gray-600 text-justify leading-relaxed pl-1 font-light">
-                          {c.comment}
-                        </p>
-
-                        {/* AI Mentor Response with beautiful background */}
-                        {c.mentorReply ? (
-                          <motion.div 
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-red-light border border-red-primary/10 p-3 rounded-sm space-y-1.5"
-                          >
-                            <div className="flex items-center gap-1.5 text-[10px] text-red-primary font-bold">
-                              <Sparkles className="w-3.5 h-3.5 text-gold-primary animate-pulse" />
-                              <span className="font-serif">红色导师点评</span>
-                            </div>
-                            <p className="text-xs text-red-dark/95 leading-relaxed text-justify whitespace-pre-wrap font-sans font-light">
-                              {c.mentorReply.replace("🚩 红帆导师点评：", "").replace("👍 红帆导师点评：", "").trim()}
-                            </p>
-                          </motion.div>
-                        ) : (
-                          <div className="bg-gray-50 p-3 rounded-sm flex items-center justify-center gap-2">
-                            <span className="dot-bounce"></span>
-                            <span className="dot-bounce"></span>
-                            <span className="dot-bounce"></span>
-                            <span className="text-[10px] text-gray-400 font-sans font-light">红色导师点评审稿中...</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
               </motion.div>
             )}
