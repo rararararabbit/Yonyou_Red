@@ -40,6 +40,7 @@ export default function App() {
   const [newCommentText, setNewCommentText] = useState("");
   const [commentingLoading, setCommentingLoading] = useState(false);
   const [commentSubmitError, setCommentSubmitError] = useState("");
+  const [commentSubmitSuccess, setCommentSubmitSuccess] = useState("");
 
   const tabScrollRef = useRef<HTMLDivElement>(null);
 
@@ -47,6 +48,12 @@ export default function App() {
     tabScrollRef.current?.scrollTo(0, 0);
     window.scrollTo(0, 0);
   }, [currentTab]);
+
+  useEffect(() => {
+    if (!commentSubmitSuccess) return;
+    const timer = setTimeout(() => setCommentSubmitSuccess(""), 3000);
+    return () => clearTimeout(timer);
+  }, [commentSubmitSuccess]);
 
   const [localArticles] = useState<Article[]>(articles);
 
@@ -71,6 +78,7 @@ export default function App() {
     const commentDate = new Date().toISOString().replace('T', ' ').slice(0, 16);
 
     setCommentSubmitError("");
+    setCommentSubmitSuccess("");
     setCommentingLoading(true);
 
     try {
@@ -99,6 +107,7 @@ export default function App() {
 
       setComments(prev => [tempComment, ...prev]);
       setNewCommentText("");
+      setCommentSubmitSuccess("提交成功");
 
       const response = await fetch(apiUrl("/api/ai/reply-comment"), {
         method: "POST",
@@ -342,6 +351,17 @@ export default function App() {
                     compact
                     onViewAll={() => { setSelectedArticle(null); setCurrentTab("info"); }}
                   />
+                  <p className="mx-4 md:mx-6 mt-3 mb-2 text-[10px] sm:text-xs text-gray-500 font-sans font-light text-center leading-relaxed">
+                    党委群、党组织关系等更多详细信息请前往
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedArticle(null); setCurrentTab("info"); }}
+                      className="text-blue-600 hover:text-blue-700 hover:underline underline-offset-2 font-medium mx-0.5 cursor-pointer"
+                    >
+                      常用信息
+                    </button>
+                    查看
+                  </p>
                 </div>
               </motion.div>
             )}
@@ -785,6 +805,26 @@ export default function App() {
         </footer>
 
       </div>
+
+      <AnimatePresence>
+        {commentSubmitSuccess && (
+          <motion.div
+            key="comment-success-toast"
+            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.96 }}
+            transition={{ type: "spring", damping: 22, stiffness: 320 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] max-w-[min(90vw,22rem)] px-4 py-3 bg-white border border-green-200 rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.12)] flex items-center gap-2.5 pointer-events-none"
+          >
+            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-green-50 shrink-0">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+            </span>
+            <span className="text-xs sm:text-sm font-sans font-medium text-gray-800 leading-snug pr-1">
+              {commentSubmitSuccess}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* DETAILED ARTICLE READER MODAL OVERLAY */}
       <AnimatePresence>
