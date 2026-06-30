@@ -1,0 +1,6 @@
+{
+  "name": "红帆领航电子期刊",
+  "description": "融合'AI+党建'创新实践的数字化红帆领航电子杂志，集理论学习、组织生活、党务公开、风采展示与互动交流于一体，激发智绘用友红，赋能企业高质量发展。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
