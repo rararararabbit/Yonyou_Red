@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { normalizeExternalImageUrl } from "../lib/image-proxy";
 
 type ContentBlock = {
   type: "paragraph" | "quote" | "subheading" | "highlight" | "image" | "bulletList";
@@ -15,6 +16,7 @@ type ExcelRow = {
   url: string;
   imageUrl: string;
   summary: string;
+  contributor?: string;
 };
 
 type Article = {
@@ -24,6 +26,7 @@ type Article = {
   title: string;
   date: string;
   author: string;
+  contributor: string;
   summary: string;
   imageUrl: string;
   readTime: string;
@@ -68,7 +71,7 @@ function parseXiumiusHtml(raHtml: string): ContentBlock[] {
       if (imgInP) {
         let src = imgInP[1];
         if (src.startsWith("//")) src = "https:" + src;
-        contentList.push({ type: "image", value: src });
+        contentList.push({ type: "image", value: normalizeExternalImageUrl(src) });
         continue;
       }
 
@@ -89,7 +92,7 @@ function parseXiumiusHtml(raHtml: string): ContentBlock[] {
     } else if (match[2]) {
       let src = match[2];
       if (src.startsWith("//")) src = "https:" + src;
-      contentList.push({ type: "image", value: src });
+      contentList.push({ type: "image", value: normalizeExternalImageUrl(src) });
     }
   }
   return contentList;
@@ -254,7 +257,8 @@ async function main() {
       tag: row.tag || "党建活动",
       title: row.title,
       date: normalizeDate(row.date),
-      author: section === "红帆领航" ? "用友党委" : "用友党委",
+      author: "用友党委",
+      contributor: row.contributor || "用友党委",
       summary: row.summary,
       imageUrl: row.imageUrl,
       readTime: estimateReadTime(content),

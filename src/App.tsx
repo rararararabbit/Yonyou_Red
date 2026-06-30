@@ -10,7 +10,23 @@ import {
 import { articles, magazineInfo, magazineAssets, Article } from "./data";
 import ArticleDetail from "./components/ArticleDetail";
 import CommonInfoPanel from "./components/CommonInfoPanel";
+import ProxiedImage from "./components/ProxiedImage";
 import { apiUrl } from "./lib/base-path";
+
+function ArticleContributorName({
+  contributor,
+  className = "",
+}: {
+  contributor?: string;
+  className?: string;
+}) {
+  if (!contributor) return null;
+  return (
+    <span className={`text-gray-500 font-sans truncate min-w-0 ${className}`}>
+      {contributor}
+    </span>
+  );
+}
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<"home" | "red-sail" | "light-shadow" | "comments" | "info">("home");
@@ -193,11 +209,10 @@ export default function App() {
                             className="w-[160px] sm:w-[200px] md:w-[220px] shrink-0 bg-white border border-[#E9E4DB]/70 hover:border-red-primary/40 rounded-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(193,16,46,0.05)] transition-all duration-300 cursor-pointer flex flex-col group"
                           >
                             <div className="w-full aspect-[4/3] overflow-hidden bg-gray-50 border-b border-gray-100">
-                              <img
+                              <ProxiedImage
                                 src={art.imageUrl}
                                 alt={art.title}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                referrerPolicy="no-referrer"
                               />
                             </div>
                             <div className="p-3 flex-1 flex flex-col justify-between">
@@ -215,8 +230,9 @@ export default function App() {
                                   {art.summary}
                                 </p>
                               </div>
-                              <div className="flex items-center justify-end mt-2.5 pt-1.5 border-t border-gray-100 text-[9px] text-gray-400">
-                                <span className="text-red-primary font-mono font-bold flex items-center gap-0.5 shrink-0">
+                              <div className="flex items-center justify-between gap-2 mt-2.5 pt-1.5 border-t border-gray-100 text-[9px]">
+                                <ArticleContributorName contributor={art.contributor} className="text-[9px] max-w-[55%]" />
+                                <span className="text-red-primary font-mono font-bold flex items-center gap-0.5 shrink-0 ml-auto">
                                   阅读详情 <ArrowRight className="w-2.5 h-2.5 group-hover:translate-x-0.5 transition-transform" />
                                 </span>
                               </div>
@@ -256,11 +272,10 @@ export default function App() {
                             className="w-[160px] sm:w-[200px] md:w-[220px] shrink-0 bg-white border border-[#E9E4DB]/70 hover:border-red-primary/40 rounded-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(193,16,46,0.05)] transition-all duration-300 cursor-pointer flex flex-col group"
                           >
                             <div className="w-full aspect-video overflow-hidden bg-gray-50 border-b border-gray-100">
-                              <img
+                              <ProxiedImage
                                 src={art.imageUrl}
                                 alt={art.title}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                referrerPolicy="no-referrer"
                               />
                             </div>
                             <div className="p-3 flex-1 flex flex-col justify-between">
@@ -278,8 +293,9 @@ export default function App() {
                                   {art.summary}
                                 </p>
                               </div>
-                              <div className="flex items-center justify-end mt-2.5 pt-1.5 border-t border-gray-100 text-[9px] text-gray-400">
-                                <span className="text-red-primary font-mono font-bold flex items-center gap-0.5 shrink-0">
+                              <div className="flex items-center justify-between gap-2 mt-2.5 pt-1.5 border-t border-gray-100 text-[9px]">
+                                <ArticleContributorName contributor={art.contributor} className="text-[9px] max-w-[55%]" />
+                                <span className="text-red-primary font-mono font-bold flex items-center gap-0.5 shrink-0 ml-auto">
                                   阅读详情 <ArrowRight className="w-2.5 h-2.5 group-hover:translate-x-0.5 transition-transform" />
                                 </span>
                               </div>
@@ -350,11 +366,10 @@ export default function App() {
                         className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm hover:shadow-md hover:border-red-primary/10 transition-all flex flex-col cursor-pointer group"
                       >
                         <div className="w-full aspect-[4/3] overflow-hidden bg-gray-50">
-                          <img 
-                            src={art.imageUrl} 
-                            alt={art.title} 
+                          <ProxiedImage
+                            src={art.imageUrl}
+                            alt={art.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            referrerPolicy="no-referrer"
                           />
                         </div>
 
@@ -372,14 +387,15 @@ export default function App() {
                             {art.summary}
                           </p>
                           
-                          <div className="pt-2 flex justify-end items-center border-t border-gray-100">
+                          <div className="pt-2 flex items-center justify-between gap-2 border-t border-gray-100">
+                            <ArticleContributorName contributor={art.contributor} className="text-[10px] max-w-[50%]" />
                             <button
                               id={`read-art-btn-${art.id}`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedArticle(art);
                               }}
-                              className="bg-red-primary hover:bg-red-dark text-white text-[10px] font-bold px-3 py-1.5 rounded-sm transition-all flex items-center gap-1 active:scale-95 cursor-pointer font-serif"
+                              className="bg-red-primary hover:bg-red-dark text-white text-[10px] font-bold px-3 py-1.5 rounded-sm transition-all flex items-center gap-1 active:scale-95 cursor-pointer font-serif shrink-0 ml-auto"
                             >
                               <span>查看详细内容</span>
                               <ArrowRight className="w-3 h-3 text-gold-primary" />
@@ -429,11 +445,10 @@ export default function App() {
                         className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm hover:shadow-md hover:border-red-primary/10 transition-all flex flex-col cursor-pointer group"
                       >
                         <div className="w-full aspect-video overflow-hidden bg-gray-50">
-                          <img
+                          <ProxiedImage
                             src={art.imageUrl}
                             alt={art.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            referrerPolicy="no-referrer"
                           />
                         </div>
 
@@ -451,8 +466,9 @@ export default function App() {
                             {art.summary}
                           </p>
 
-                          <div className="pt-2 flex items-center justify-end text-[10px] text-gray-400 border-t border-gray-50">
-                            <span className="text-red-primary font-bold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                          <div className="pt-2 flex items-center justify-between gap-2 text-[10px] border-t border-gray-50">
+                            <ArticleContributorName contributor={art.contributor} className="text-[10px] max-w-[50%]" />
+                            <span className="text-red-primary font-bold flex items-center gap-0.5 shrink-0 ml-auto group-hover:translate-x-0.5 transition-transform">
                               点击进入详情 <ArrowRight className="w-3 h-3" />
                             </span>
                           </div>
@@ -603,7 +619,7 @@ export default function App() {
           {/* Editor & Navigation */}
           <div className="flex flex-col items-end gap-2 shrink-0 w-full md:w-auto">
             <p className="editorial-note font-bold whitespace-nowrap">
-              主编：用友党委研发党支部
+              主编：用友党委·研发党支部
             </p>
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full md:w-auto justify-start md:justify-end">
             <button

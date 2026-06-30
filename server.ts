@@ -5,6 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { sendStudyReflectionEmail } from "./lib/study-reflection-mail";
 import { getConstitutionHtml, getTransferGuideHtml } from "./lib/common-info-fetch";
+import { fetchProxiedImage, isAllowedImageUrl } from "./lib/image-proxy";
 
 dotenv.config();
 
@@ -46,6 +47,24 @@ router.get("/api/health", (req, res) => {
     aiConfigured: aiClient !== null,
     timestamp: new Date().toISOString()
   });
+});
+
+// 1b. Proxy external article images (秀米防盗链)
+router.get("/api/proxy-image", async (req, res) => {
+  const url = String(req.query.url || "");
+  if (!url || !isAllowedImageUrl(url)) {
+    return res.status(400).json({ ok: false, error: "Invalid image URL" });
+  }
+
+  try {
+    const { buffer, contentType } = await fetchProxiedImage(url);
+    res.set("Content-Type", contentType);
+    res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+    res.send(buffer);
+  } catch (error: any) {
+    console.error("Image proxy error:", error?.message || error);
+    res.status(502).json({ ok: false, error: "Image proxy failed" });
+  }
 });
 
 // 1c. Common info remote content
@@ -584,6 +603,8 @@ function simulateCommentReview(username: string, comment: string, res: any) {
 
 // Integration of Vite Middleware and Static Assets
 async function startServer() {
+  app.use(mountPath, router);
+
   if (process.env.NODE_ENV !== "production") {
     const viteBase = mountPath === "/" ? "/" : `${mountPath}/`;
     const vite = await createViteServer({
@@ -596,13 +617,11 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(mountPath, express.static(distPath));
-    router.get("*", (_req, res) => {
+    app.get(`${mountPath === "/" ? "" : mountPath}/*`, (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
     console.log(`Production static asset serving configured at ${mountPath}`);
   }
-
-  app.use(mountPath, router);
 
   app.listen(PORT, "0.0.0.0", () => {
     const suffix = BASE_PATH ? BASE_PATH : "";

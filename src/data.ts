@@ -9,6 +9,7 @@ export interface Article {
   title: string;
   date: string;
   author: string;
+  contributor: string;
   summary: string;
   imageUrl: string;
   readTime: string;

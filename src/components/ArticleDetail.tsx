@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { X, Calendar, User, Heart, Eye, Award } from "lucide-react";
+import { X, Calendar, Heart, Eye, Award, Maximize2, Minimize2, PenLine } from "lucide-react";
+import ProxiedImage from "./ProxiedImage";
 import { Article } from "../data";
 
 interface ArticleDetailProps {
@@ -12,6 +13,7 @@ export default function ArticleDetail({ article, onClose }: ArticleDetailProps) 
   // States for Likes
   const [hasLiked, setHasLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(article.likes);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   // Handle Like Action
   const handleLike = () => {
@@ -29,14 +31,20 @@ export default function ArticleDetail({ article, onClose }: ArticleDetailProps) 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-6"
+      className={`fixed inset-0 bg-black/60 z-50 flex items-center justify-center ${
+        isMaximized ? "p-0" : "px-4 sm:px-6 lg:px-8 py-6"
+      }`}
     >
       <motion.div 
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 220 }}
-        className="bg-[#FCFAF7] w-full max-w-7xl h-full max-h-[calc(100vh-3rem)] sm:rounded-sm shadow-2xl flex flex-col overflow-hidden border border-gray-200"
+        className={`bg-[#FCFAF7] w-full shadow-2xl flex flex-col overflow-hidden border border-gray-200 ${
+          isMaximized
+            ? "h-screen max-w-none max-h-none rounded-none"
+            : "max-w-7xl h-full max-h-[calc(100vh-3rem)] sm:rounded-sm"
+        }`}
       >
         {/* Header bar */}
         <div className="bg-red-primary px-4 py-3.5 text-white flex items-center justify-between border-b-4 border-gold-primary shrink-0">
@@ -48,13 +56,34 @@ export default function ArticleDetail({ article, onClose }: ArticleDetailProps) 
               {article.title}
             </h3>
           </div>
-          <button 
-            id="close-article-btn"
-            onClick={onClose} 
-            className="p-1 rounded-none hover:bg-black/20 text-white transition-colors"
-          >
-            <X className="w-5 h-5 text-gold-primary" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              id="toggle-article-size-btn"
+              type="button"
+              onClick={() => setIsMaximized((v) => !v)}
+              className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-none hover:bg-black/20 text-white transition-colors text-[10px] font-sans tracking-wide"
+              title={isMaximized ? "退出全屏" : "全屏浏览"}
+            >
+              {isMaximized ? (
+                <>
+                  <Minimize2 className="w-4 h-4 text-gold-primary" />
+                  <span className="text-gold-primary hidden md:inline">退出全屏</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-4 h-4 text-gold-primary" />
+                  <span className="text-gold-primary hidden md:inline">全屏浏览</span>
+                </>
+              )}
+            </button>
+            <button 
+              id="close-article-btn"
+              onClick={onClose} 
+              className="p-1 rounded-none hover:bg-black/20 text-white transition-colors"
+            >
+              <X className="w-5 h-5 text-gold-primary" />
+            </button>
+          </div>
         </div>
 
         {/* Article content container */}
@@ -68,9 +97,11 @@ export default function ArticleDetail({ article, onClose }: ArticleDetailProps) 
                 {article.title}
               </h1>
               <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 font-sans">
-                <span className="flex items-center gap-1 text-red-primary font-medium">
-                  <User className="w-3.5 h-3.5" /> {article.author}
-                </span>
+                {article.contributor && (
+                  <span className="flex items-center gap-1 text-red-primary font-medium">
+                    <PenLine className="w-3.5 h-3.5" /> 供稿方：{article.contributor}
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5" /> {article.date}
                 </span>
@@ -144,11 +175,10 @@ export default function ArticleDetail({ article, onClose }: ArticleDetailProps) 
                   return (
                     <div key={idx} className="my-6 space-y-2">
                       <div className="rounded-none bg-gray-100 shadow-sm border border-gray-200">
-                        <img 
-                          src={item.value as string} 
-                          alt={item.caption || "插图"} 
+                        <ProxiedImage
+                          src={item.value as string}
+                          alt={item.caption || "插图"}
                           className="w-full h-auto block"
-                          referrerPolicy="no-referrer"
                         />
                       </div>
                       {item.caption && (
