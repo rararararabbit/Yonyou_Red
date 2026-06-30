@@ -18,8 +18,17 @@ jobs:
 
       - name: Pack source (exclude node_modules / .git / dist)
         run: |
-          tar --exclude=node_modules --exclude=.git --exclude=dist --exclude=.env \
-            -czf deploy.tar.gz .
+          staging="/tmp/yonyou-red-src"
+          rm -rf "$staging"
+          mkdir -p "$staging"
+          rsync -a \
+            --exclude node_modules \
+            --exclude .git \
+            --exclude dist \
+            --exclude .env \
+            --exclude deploy.tar.gz \
+            ./ "$staging/"
+          tar -czf deploy.tar.gz -C "$staging" .
 
       - name: Upload to server
         uses: appleboy/scp-action@v0.1.7
