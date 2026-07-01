@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { X, Calendar, Heart, Eye, Award, Maximize2, Minimize2, PenLine } from "lucide-react";
 import ProxiedImage from "./ProxiedImage";
 import { Article } from "../data";
+import { ensureChinesePeriod } from "../lib/text";
 
 interface ArticleDetailProps {
   article: Article;
@@ -14,6 +15,11 @@ export default function ArticleDetail({ article, onClose }: ArticleDetailProps) 
   const [hasLiked, setHasLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(article.likes);
   const [isMaximized, setIsMaximized] = useState(false);
+
+  const lightShadowIntroIdx =
+    article.section === "光影速递"
+      ? article.content.findIndex((item) => item.type === "paragraph")
+      : -1;
 
   // Handle Like Action
   const handleLike = () => {
@@ -115,9 +121,12 @@ export default function ArticleDetail({ article, onClose }: ArticleDetailProps) 
             <div className="space-y-5 text-sm sm:text-base leading-relaxed text-gray-700">
               {article.content.map((item, idx) => {
                 if (item.type === "paragraph") {
+                  const text = item.value as string;
+                  const displayText =
+                    idx === lightShadowIntroIdx ? ensureChinesePeriod(text) : text;
                   return (
                     <p key={idx} className="text-justify indent-8">
-                      {item.value as string}
+                      {displayText}
                     </p>
                   );
                 }

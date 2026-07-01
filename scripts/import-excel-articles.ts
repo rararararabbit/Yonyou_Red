@@ -254,6 +254,44 @@ function estimateReadTime(content: ContentBlock[]) {
   return `${minutes}分钟`;
 }
 
+/** 按标题裁剪正文：去掉指定标记之后的内容 */
+function trimArticleContent(title: string, content: ContentBlock[]): ContentBlock[] {
+  const trimRules: Record<string, string> = {
+    "2026年协同云及人力协同党支部参观香山革命纪念馆": "往期「文化活动」回顾",
+  };
+  const marker = trimRules[title];
+  if (!marker) return content;
+
+  const cutIndex = content.findIndex(
+    (block) => typeof block.value === "string" && block.value.includes(marker)
+  );
+  return cutIndex === -1 ? content : content.slice(0, cutIndex);
+}
+
+function ensureChinesePeriod(text: string): string {
+  const trimmed = text.trimEnd();
+  if (!trimmed || /[。！？…!?]$/.test(trimmed)) return trimmed;
+  return `${trimmed}。`;
+}
+
+/** 光影速递详情说明文字（首段正文）末尾补句号 */
+function normalizeLightShadowIntro(
+  section: string,
+  content: ContentBlock[]
+): ContentBlock[] {
+  if (section !== "光影速递") return content;
+  const introIdx = content.findIndex((block) => block.type === "paragraph");
+  if (introIdx === -1) return content;
+  const block = content[introIdx];
+  if (typeof block.value !== "string") return content;
+  const normalized = [...content];
+  normalized[introIdx] = {
+    ...block,
+    value: ensureChinesePeriod(block.value),
+  };
+  return normalized;
+}
+
 async function main() {
   const rows: ExcelRow[] = JSON.parse(fs.readFileSync(EXCEL_JSON, "utf-8"));
   const editorialRow = rows.find((r) => r.title === "卷首语");
@@ -289,6 +327,11 @@ async function main() {
     }
 
     if (content.length === 0) content = fallbackContent(row.summary, row.imageUrl);
+    content = trimArticleContent(row.title, content);
+    content = normalizeLightShadowIntro(section, content);
+
+    const summary =
+      section === "光影速递" ? ensureChinesePeriod(row.summary) : row.summary;
 
     articles.push({
       id,
@@ -298,14 +341,14 @@ async function main() {
       date: normalizeDate(row.date),
       author: "用友党委",
       contributor: row.contributor || "用友党委",
-      summary: row.summary,
+      summary,
       imageUrl: row.imageUrl,
       readTime: estimateReadTime(content),
       views: 800 + i * 37,
       likes: 120 + i * 11,
       content,
       quiz: [],
-      aiNotes: row.summary,
+      aiNotes: summary,
       aiSuggestions: [],
     });
   }
