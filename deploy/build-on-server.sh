@@ -11,10 +11,11 @@ cd "$APP_DIR"
 echo "==> 安装依赖..."
 npm ci --registry="$NPM_REGISTRY"
 
-echo "==> 构建生产包..."
+echo "==> 构建正式包（默认 Vol. 01）..."
 export BASE_PATH="$BASE_PATH"
 export NODE_ENV=production
-npm run build
+export VITE_DEFAULT_VOLUME=vol-01
+npm run build:prod
 
 echo "==> 重启应用..."
 pm2 reload yonyou-red --update-env 2>/dev/null || pm2 start deploy/ecosystem.config.cjs --update-env

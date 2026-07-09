@@ -19,9 +19,16 @@ command -v git >/dev/null || { echo "未安装 git"; exit 1; }
 mkdir -p "$(dirname "$APP_DIR")"
 if [ -d "$APP_DIR/.git" ]; then
   echo "==> 目录已存在，跳过 clone"
+elif [ -f "$APP_DIR/package.json" ]; then
+  echo "==> 目录已有代码（非 git），跳过 clone"
 else
   echo "==> 克隆仓库..."
-  git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
+  if ! git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"; then
+    echo ""
+    echo "错误: 无法从 GitHub 克隆（国内服务器常见）。"
+    echo "请在本机 Mac 执行: bash deploy/upload-test-from-local.sh"
+    exit 1
+  fi
 fi
 
 cd "$APP_DIR"

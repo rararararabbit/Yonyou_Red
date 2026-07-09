@@ -117,19 +117,31 @@ const magazineVolumes: Record<MagazineVolumeId, MagazineBundle> = {
   "vol-02": buildMagazineBundle(vol02Meta as MagazineMetaFile, vol02Articles),
 };
 
+function getDefaultVolumeId(): MagazineVolumeId {
+  const raw = import.meta.env.VITE_DEFAULT_VOLUME;
+  if (raw === "vol-01") return "vol-01";
+  if (raw === "vol-02") return "vol-02";
+  return "vol-02";
+}
+
 export function resolveVolumeId(raw: string | null): MagazineVolumeId {
   if (raw === "01" || raw === "vol-01") return "vol-01";
-  return "vol-02";
+  if (raw === "02" || raw === "vol-02") return "vol-02";
+  return getDefaultVolumeId();
+}
+
+export function getDefaultVolume(): MagazineVolumeId {
+  return getDefaultVolumeId();
 }
 
 export function getMagazineVolume(id: MagazineVolumeId): MagazineBundle {
   return magazineVolumes[id];
 }
 
-/** 当前默认卷（Vol. 02） */
-export const articles = magazineVolumes["vol-02"].articles;
-export const magazineInfo = magazineVolumes["vol-02"].magazineInfo;
-export const magazineAssets = magazineVolumes["vol-02"].magazineAssets;
+/** 本地开发默认卷（Vol. 02）；正式/测试环境由 VITE_DEFAULT_VOLUME 构建时注入 */
+export const articles = magazineVolumes[getDefaultVolumeId()].articles;
+export const magazineInfo = magazineVolumes[getDefaultVolumeId()].magazineInfo;
+export const magazineAssets = magazineVolumes[getDefaultVolumeId()].magazineAssets;
 
 export interface CommonInfoEntry {
   label: string;
