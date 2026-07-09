@@ -4,14 +4,14 @@ import {
   BookOpen, Image as ImageIcon, MessageSquare, Flame, 
   Search, ArrowRight, Heart, Share2, Award, Compass, 
   HelpCircle, ChevronRight, CheckCircle2, Send, Sparkles, LogIn,
-  ClipboardList
+  ClipboardList, X, Video, Play
 } from "lucide-react";
 
-import { articles, magazineInfo, magazineAssets, Article } from "./data";
+import { getMagazineVolume, resolveVolumeId, Article } from "./data";
 import ArticleDetail from "./components/ArticleDetail";
 import CommonInfoPanel from "./components/CommonInfoPanel";
 import ProxiedImage from "./components/ProxiedImage";
-import { apiUrl } from "./lib/base-path";
+import { apiUrl, getBasePath } from "./lib/base-path";
 
 function ArticleContributorName({
   contributor,
@@ -28,10 +28,60 @@ function ArticleContributorName({
   );
 }
 
+function isVideoMediaUrl(url: string) {
+  return /\.mp4/i.test(url);
+}
+
+function ArticleCardMedia({
+  src,
+  title,
+  className = "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500",
+  containerClassName = "w-full aspect-video overflow-hidden bg-gray-50 border-b border-gray-100",
+}: {
+  src: string;
+  title: string;
+  className?: string;
+  containerClassName?: string;
+}) {
+  if (isVideoMediaUrl(src)) {
+    return (
+      <div className={`${containerClassName} relative`}>
+        <video
+          src={src}
+          muted
+          playsInline
+          preload="metadata"
+          className={className}
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none">
+          <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-md">
+            <Play className="w-5 h-5 text-red-primary ml-0.5" fill="currentColor" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={containerClassName}>
+      <ProxiedImage src={src} alt={title} className={className} />
+    </div>
+  );
+}
+
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<"home" | "red-sail" | "light-shadow" | "comments" | "info">("home");
+  const searchParams = new URLSearchParams(window.location.search);
+  const isEmbedded = searchParams.get("embed") === "1";
+  const volumeId = resolveVolumeId(searchParams.get("vol"));
+  const volume = getMagazineVolume(volumeId);
+  const { articles, magazineInfo, magazineAssets, volumeLabel, features } = volume;
+  const showMediaRecord = features.mediaRecord;
+  const archivePreviewUrl = `${window.location.origin}${getBasePath()}?vol=01&embed=1`;
+
+  const [currentTab, setCurrentTab] = useState<"home" | "red-sail" | "light-shadow" | "media-record" | "comments" | "info">("home");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const [vol01PreviewOpen, setVol01PreviewOpen] = useState(false);
   
   // Custom Comment State
   const [newCommentName, setNewCommentName] = useState("");
@@ -46,6 +96,12 @@ export default function App() {
     tabScrollRef.current?.scrollTo(0, 0);
     window.scrollTo(0, 0);
   }, [currentTab]);
+
+  useEffect(() => {
+    if (!showMediaRecord && currentTab === "media-record") {
+      setCurrentTab("home");
+    }
+  }, [showMediaRecord, currentTab]);
 
   useEffect(() => {
     if (!commentSubmitSuccess) return;
@@ -63,6 +119,7 @@ export default function App() {
 
   const redSailArticles = filteredArticles.filter(art => art.section === "红帆领航");
   const lightShadowArticles = filteredArticles.filter(art => art.section === "光影速递");
+  const mediaRecordArticles = filteredArticles.filter(art => art.section === "音像纪实");
 
   // Submitting a new comment on the interactive board
   const handleSubmitComment = async (e: React.FormEvent) => {
@@ -168,9 +225,25 @@ export default function App() {
                             </p>
                           ))}
                         </div>
-                        <div className="flex justify-end mt-4 items-center gap-2 pt-3 border-t border-dashed border-[#E9E4DB]/60">
-                          <span className="editorial-note">— 《智绘用友红》编辑部</span>
-                          <div className="w-4 h-[1px] bg-gray-300"></div>
+                        <div className="flex justify-between mt-4 items-center gap-2 pt-3 border-t border-dashed border-[#E9E4DB]/60">
+                          {!isEmbedded && volumeId === "vol-02" ? (
+                            <p className="editorial-note text-red-primary/75 tracking-wide">
+                              往期阅读：
+                              <button
+                                type="button"
+                                onClick={() => setVol01PreviewOpen(true)}
+                                className="ml-0.5 text-blue-600 font-medium underline underline-offset-2 decoration-blue-600/50 hover:text-blue-700 hover:decoration-blue-700 transition-colors cursor-pointer"
+                              >
+                                Vol. 01
+                              </button>
+                            </p>
+                          ) : (
+                            <span />
+                          )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="editorial-note">— 《智绘用友红》编辑部</span>
+                            <div className="w-4 h-[1px] bg-gray-300"></div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -305,6 +378,65 @@ export default function App() {
                       )}
                     </div>
                   </div>
+
+                  {/* Column 3: 音像纪实（仅 Vol.02） */}
+                  {showMediaRecord && (
+                  <div className="w-full flex flex-col gap-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-gray-200 gap-2">
+                      <h3 className="text-[12px] font-bold text-gray-900 tracking-[0.2em] uppercase flex items-center gap-2 font-sans">
+                        <Video className="w-4 h-4 text-red-primary shrink-0" />
+                        音像纪实 / MEDIA
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedArticle(null); setCurrentTab("media-record"); }}
+                        className="text-[10px] text-red-primary font-sans font-medium flex items-center gap-0.5 hover:text-red-dark transition-colors cursor-pointer shrink-0"
+                      >
+                        查看全部 <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar scroll-smooth">
+                      {mediaRecordArticles.length === 0 ? (
+                        <div className="w-full py-10 text-center text-xs text-gray-400 italic bg-white border border-[#E9E4DB] rounded-none">
+                          暂无音像内容
+                        </div>
+                      ) : (
+                        mediaRecordArticles.map((art) => (
+                          <div
+                            key={art.id}
+                            onClick={() => setSelectedArticle(art)}
+                            className="w-[160px] sm:w-[200px] md:w-[220px] shrink-0 bg-white border border-[#E9E4DB]/70 hover:border-red-primary/40 rounded-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(193,16,46,0.05)] transition-all duration-300 cursor-pointer flex flex-col group"
+                          >
+                            <ArticleCardMedia src={art.imageUrl} title={art.title} />
+                            <div className="p-3 flex-1 flex flex-col justify-between">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-[8px] bg-red-primary/10 text-red-primary border border-red-primary/20 font-bold px-1.5 py-0.5 tracking-wider uppercase rounded-none font-sans">
+                                    {art.tag}
+                                  </span>
+                                  <span className="text-[9px] text-gray-400 font-mono shrink-0">{art.date}</span>
+                                </div>
+                                <h4 className="text-xs font-serif font-bold text-gray-900 leading-snug group-hover:text-red-primary transition-colors duration-200 line-clamp-2">
+                                  {art.title}
+                                </h4>
+                                <p className="text-[10px] text-gray-500 mt-1.5 font-sans font-light leading-relaxed line-clamp-2">
+                                  {art.summary}
+                                </p>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 mt-2.5 pt-1.5 border-t border-gray-100 text-[9px]">
+                                <ArticleContributorName contributor={art.contributor} className="text-[9px] max-w-[55%]" />
+                                <span className="text-red-primary font-mono font-bold flex items-center gap-0.5 shrink-0 ml-auto">
+                                  播放详情 <ArrowRight className="w-2.5 h-2.5 group-hover:translate-x-0.5 transition-transform" />
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  )}
 
                 </div>
 
@@ -481,7 +613,75 @@ export default function App() {
               </motion.div>
             )}
 
-            {/* 4. COMMENTS TAB (互动交流) */}
+            {/* 4. MEDIA RECORD TAB (音像纪实 · 仅 Vol.02) */}
+            {showMediaRecord && currentTab === "media-record" && (
+              <motion.div
+                key="media-record-tab"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="p-3 space-y-5"
+              >
+                <div className="bg-red-primary border-t-4 border-gold-primary rounded-sm p-4 text-white shadow-md relative overflow-hidden">
+                  <div className="absolute right-0 bottom-0 text-[#F8D147]/5 pointer-events-none translate-x-4 translate-y-4">
+                    <Video className="w-32 h-32" />
+                  </div>
+                  <span className="text-[9px] bg-gold-primary text-red-dark font-bold px-2 py-0.5 rounded-none uppercase tracking-wider">
+                    现场影像 声动红帆 / MEDIA
+                  </span>
+                  <h2 className="font-serif italic text-xl font-bold mt-1 text-gold-primary">
+                    音像纪实板块
+                  </h2>
+                  <p className="text-[10px] text-red-light/95 mt-1 font-sans font-light leading-relaxed">
+                    七一纪念大会现场视频，记录发言、文艺节目与新闻报道精彩瞬间。
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {mediaRecordArticles.length === 0 ? (
+                    <div className="col-span-full py-12 text-center text-xs text-gray-400 italic">暂无音像内容</div>
+                  ) : (
+                    mediaRecordArticles.map((art) => (
+                      <div
+                        key={art.id}
+                        onClick={() => setSelectedArticle(art)}
+                        className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm hover:shadow-md hover:border-red-primary/10 transition-all flex flex-col cursor-pointer group"
+                      >
+                        <ArticleCardMedia
+                          src={art.imageUrl}
+                          title={art.title}
+                          containerClassName="w-full aspect-video overflow-hidden bg-gray-900"
+                        />
+
+                        <div className="p-3.5 space-y-2 flex-1 flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[8px] bg-red-primary/10 text-red-primary border border-red-primary/20 font-bold px-1.5 py-0.5 tracking-wider uppercase rounded-none font-sans">
+                              {art.tag}
+                            </span>
+                            <span className="text-[9px] text-gray-400 font-mono">{art.date}</span>
+                          </div>
+                          <h3 className="font-serif text-sm font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-red-primary transition-colors">
+                            {art.title}
+                          </h3>
+                          <p className="text-xs text-gray-500 leading-relaxed text-justify font-light line-clamp-3 flex-1">
+                            {art.summary}
+                          </p>
+
+                          <div className="pt-2 flex items-center justify-between gap-2 text-[10px] border-t border-gray-50">
+                            <ArticleContributorName contributor={art.contributor} className="text-[10px] max-w-[50%]" />
+                            <span className="text-red-primary font-bold flex items-center gap-0.5 shrink-0 ml-auto group-hover:translate-x-0.5 transition-transform">
+                              点击播放 <ArrowRight className="w-3 h-3" />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* 5. COMMENTS TAB (互动交流) */}
             {currentTab === "comments" && (
               <motion.div
                 key="comments-tab"
@@ -596,31 +796,33 @@ export default function App() {
 
       {/* HEADER BLOCK - Full Width Sticky Header */}
       <header className="sticky top-0 z-30 w-full border-b border-[#E9E4DB] bg-[#FAF9F6]/95 backdrop-blur-md transition-all shadow-sm">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <span className="text-[9px] font-mono tracking-[0.3em] text-[#A59D90] uppercase block">RED SAIL PUBLISHING</span>
-              <span className="h-[1px] w-8 bg-[#E9E4DB]" />
-              <span className="text-[9px] bg-red-primary text-white font-mono tracking-widest px-1.5 py-0.5 uppercase">
-                Vol. 01
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-4 flex-nowrap whitespace-nowrap w-full min-w-0">
+            <div className="flex items-center gap-3 flex-nowrap whitespace-nowrap shrink-0">
+              <span className="text-[9px] font-mono tracking-[0.3em] text-[#A59D90] uppercase shrink-0">RED SAIL PUBLISHING</span>
+              <span className="h-[1px] w-8 bg-[#E9E4DB] shrink-0" />
+              <span className="text-[9px] bg-red-primary text-white font-mono tracking-widest px-1.5 py-0.5 uppercase shrink-0">
+                {volumeLabel}
               </span>
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-extrabold text-[#1A1A1A] tracking-tighter leading-none flex items-baseline gap-1">
-                智绘用友红 <span className="font-serif italic font-normal text-red-primary text-base sm:text-lg md:text-xl ml-2">Digital Magazine</span>
+            <p className="editorial-note font-bold whitespace-nowrap shrink-0">
+              主编：用友党委·研发党支部
+            </p>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-extrabold text-[#1A1A1A] tracking-tighter leading-none flex items-baseline gap-1 flex-nowrap whitespace-nowrap">
+                智绘用友红 <span className="font-serif italic font-normal text-red-primary text-base sm:text-lg md:text-xl ml-2 shrink-0">Digital Magazine</span>
               </h1>
               <p className="text-[9px] md:text-[10px] text-gray-500 tracking-[0.2em] uppercase font-sans font-medium mt-1.5 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-primary animate-ping" />
                 “AI+党建” 创新实践与风采展示 · 激发高质量组织新动能
               </p>
-            </div>
           </div>
 
-          {/* Editor & Navigation */}
+          {/* Navigation */}
           <div className="flex flex-col items-end gap-2 shrink-0 w-full md:w-auto">
-            <p className="editorial-note font-bold whitespace-nowrap">
-              主编：用友党委·研发党支部
-            </p>
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full md:w-auto justify-start md:justify-end">
             <button
               id="top-nav-home"
@@ -655,6 +857,19 @@ export default function App() {
             >
               光影速递 / ALBUM
             </button>
+            {showMediaRecord && (
+            <button
+              id="top-nav-media-record"
+              onClick={() => { setSelectedArticle(null); setCurrentTab("media-record"); }}
+              className={`px-4 py-2 text-xs font-sans font-semibold tracking-[0.15em] border-b-2 transition-all cursor-pointer whitespace-nowrap uppercase ${
+                currentTab === "media-record"
+                  ? "border-red-primary text-red-primary bg-red-primary/[0.03]"
+                  : "border-transparent text-gray-500 hover:text-red-primary hover:bg-gray-100/50"
+              }`}
+            >
+              音像纪实 / MEDIA
+            </button>
+            )}
             <button
               id="top-nav-comments"
               onClick={() => { setSelectedArticle(null); setCurrentTab("comments"); }}
@@ -678,6 +893,7 @@ export default function App() {
               常用信息 / INFO
             </button>
             </div>
+          </div>
           </div>
         </div>
       </header>
@@ -729,6 +945,48 @@ export default function App() {
             article={selectedArticle} 
             onClose={() => setSelectedArticle(null)} 
           />
+        )}
+      </AnimatePresence>
+
+      {/* Vol. 01 archive preview modal */}
+      <AnimatePresence>
+        {vol01PreviewOpen && (
+          <motion.div
+            key="vol01-preview"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[55] bg-black/60 flex items-center justify-center px-4 sm:px-6 py-6"
+            onClick={() => setVol01PreviewOpen(false)}
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="bg-[#FAF9F6] w-[90vw] h-[90vh] flex flex-col border border-gray-200 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-red-primary px-4 py-3 text-white flex items-center justify-between border-b-4 border-gold-primary shrink-0">
+                <span className="text-xs sm:text-sm font-serif font-bold text-gold-primary">
+                  往期阅读 · Vol. 01
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setVol01PreviewOpen(false)}
+                  className="p-1 rounded-none hover:bg-black/20 transition-colors cursor-pointer"
+                  aria-label="关闭预览"
+                >
+                  <X className="w-5 h-5 text-gold-primary" />
+                </button>
+              </div>
+              <iframe
+                title="智绘用友红 Vol. 01"
+                src={archivePreviewUrl}
+                className="flex-1 w-full border-0 bg-white"
+              />
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

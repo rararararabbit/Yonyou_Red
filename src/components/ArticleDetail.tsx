@@ -1,9 +1,15 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { X, Calendar, Heart, Eye, Award, Maximize2, Minimize2, PenLine } from "lucide-react";
+import { X, Calendar, Award, Maximize2, Minimize2, PenLine } from "lucide-react";
 import ProxiedImage from "./ProxiedImage";
 import { Article } from "../data";
 import { ensureChinesePeriod } from "../lib/text";
+import {
+  ArticleLinkBlock,
+  ArticleParagraphBlock,
+  getParagraphPlainText,
+  renderInlineSegments,
+} from "./ArticleContentBlocks";
 
 interface ArticleDetailProps {
   article: Article;
@@ -11,26 +17,12 @@ interface ArticleDetailProps {
 }
 
 export default function ArticleDetail({ article, onClose }: ArticleDetailProps) {
-  // States for Likes
-  const [hasLiked, setHasLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(article.likes);
   const [isMaximized, setIsMaximized] = useState(false);
 
   const lightShadowIntroIdx =
     article.section === "光影速递"
       ? article.content.findIndex((item) => item.type === "paragraph")
       : -1;
-
-  // Handle Like Action
-  const handleLike = () => {
-    if (hasLiked) {
-      setLikesCount(prev => prev - 1);
-      setHasLiked(false);
-    } else {
-      setLikesCount(prev => prev + 1);
-      setHasLiked(true);
-    }
-  };
 
   return (
     <motion.div 
@@ -121,22 +113,24 @@ export default function ArticleDetail({ article, onClose }: ArticleDetailProps) 
             <div className="space-y-5 text-sm sm:text-base leading-relaxed text-gray-700">
               {article.content.map((item, idx) => {
                 if (item.type === "paragraph") {
-                  const text = item.value as string;
-                  const displayText =
-                    idx === lightShadowIntroIdx ? ensureChinesePeriod(text) : text;
-                  return (
-                    <p key={idx} className="text-justify indent-8">
-                      {displayText}
-                    </p>
-                  );
+                  const plainText = getParagraphPlainText(item);
+                  const block =
+                    idx === lightShadowIntroIdx && !item.segments?.length
+                      ? { ...item, value: ensureChinesePeriod(plainText) }
+                      : item;
+                  return <ArticleParagraphBlock key={idx} block={block} />;
+                }
+
+                if (item.type === "link") {
+                  return <ArticleLinkBlock key={idx} block={item} />;
                 }
                 
                 if (item.type === "subheading") {
                   return (
-                    <div key={idx} className="flex items-center gap-2 pt-4 pb-1">
-                      <span className="w-1.5 h-6 bg-red-primary rounded-none"></span>
-                      <h2 className="font-serif text-base sm:text-lg font-bold text-red-dark">
-                        {item.value as string}
+                    <div key={idx} className={`flex items-center gap-2 pt-4 pb-1 ${item.align === "center" ? "justify-center" : ""}`}>
+                      {!item.align && <span className="w-1.5 h-6 bg-red-primary rounded-none"></span>}
+                      <h2 className={`font-serif text-base sm:text-lg font-bold text-red-dark ${item.align === "center" ? "text-center" : ""}`}>
+                        {item.segments?.length ? renderInlineSegments(item.segments) : (item.value as string)}
                       </h2>
                     </div>
                   );
@@ -199,30 +193,29 @@ export default function ArticleDetail({ article, onClose }: ArticleDetailProps) 
                   );
                 }
 
+                if (item.type === "video") {
+                  return (
+                    <div key={idx} className="my-6 space-y-2">
+                      <div className="rounded-none bg-black shadow-sm border border-gray-200 overflow-hidden">
+                        <video
+                          src={item.value as string}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-auto block bg-black"
+                        />
+                      </div>
+                      {item.caption && (
+                        <p className="text-xs text-center text-gray-500 font-sans italic px-4 font-light">
+                          {item.caption}
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
+
                 return null;
               })}
-            </div>
-
-            {/* Bottom reading footprint & likes */}
-            <div className="mt-12 pt-6 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 font-sans">
-              <div className="flex items-center gap-4 font-light">
-                <span className="flex items-center gap-1">
-                  <Eye className="w-4 h-4 text-gray-400" />
-                  {article.views + (hasLiked ? 1 : 0)} 次阅读
-                </span>
-              </div>
-              <button 
-                id="article-like-btn"
-                onClick={handleLike}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-none border transition-all ${
-                  hasLiked 
-                    ? "bg-red-light text-red-primary border-red-primary/30" 
-                    : "border-gray-200 hover:border-red-primary hover:text-red-primary"
-                }`}
-              >
-                <Heart className={`w-4 h-4 ${hasLiked ? "fill-red-primary text-red-primary" : ""}`} />
-                <span className="font-serif">{likesCount}</span>
-              </button>
             </div>
           </div>
 

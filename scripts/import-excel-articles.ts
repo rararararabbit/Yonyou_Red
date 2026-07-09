@@ -2,11 +2,22 @@ import fs from "fs";
 import path from "path";
 import { normalizeExternalImageUrl } from "../lib/image-proxy";
 
+type ContentInlineSegment = {
+  type: "text" | "link";
+  value: string;
+  href?: string;
+};
+
 type ContentBlock = {
-  type: "paragraph" | "quote" | "subheading" | "highlight" | "image" | "bulletList";
-  value: string | string[];
+  type: "paragraph" | "quote" | "subheading" | "highlight" | "image" | "video" | "bulletList" | "link";
+  value?: string | string[];
+  segments?: ContentInlineSegment[];
+  href?: string;
+  align?: "center";
   caption?: string;
 };
+
+type ArticleSection = "光影速递" | "红帆领航" | "音像纪实";
 
 type ExcelRow = {
   section: string;
@@ -21,7 +32,7 @@ type ExcelRow = {
 
 type Article = {
   id: string;
-  section: "光影速递" | "红帆领航";
+  section: ArticleSection;
   tag: string;
   title: string;
   date: string;
@@ -40,8 +51,8 @@ type Article = {
 
 const ROOT = path.join(import.meta.dirname, "..");
 const EXCEL_JSON = path.join(ROOT, "scripts/excel-articles.json");
-const OUTPUT = path.join(ROOT, "src/generated/articles.json");
-const MAGAZINE_OUTPUT = path.join(ROOT, "src/generated/magazine-meta.json");
+const OUTPUT = path.join(ROOT, "src/generated/vol-02/articles.json");
+const MAGAZINE_OUTPUT = path.join(ROOT, "src/generated/vol-02/magazine-meta.json");
 
 function decodeHtml(text: string) {
   return text
@@ -58,6 +69,90 @@ function decodeHtml(text: string) {
 
 function stripHtml(html: string) {
   return decodeHtml(html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+}
+
+function normalizeHref(href: string) {
+  const trimmed = href.trim();
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  return trimmed;
+}
+
+function parseInlineContent(html: string): ContentInlineSegment[] {
+  const cleaned = html.replace(/<a\s+name=["'][^"']*["'][^>]*><\/a>/gi, "");
+  const segments: ContentInlineSegment[] = [];
+  const linkRegex = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkRegex.exec(cleaned)) !== null) {
+    const textBefore = stripHtml(cleaned.slice(lastIndex, match.index));
+    if (textBefore) segments.push({ type: "text", value: textBefore });
+
+    const href = normalizeHref(match[1]);
+    const linkText = stripHtml(match[2]);
+    if (linkText && href) {
+      segments.push({ type: "link", value: linkText, href });
+    }
+    lastIndex = linkRegex.lastIndex;
+  }
+
+  const trailingText = stripHtml(cleaned.slice(lastIndex));
+  if (trailingText) segments.push({ type: "text", value: trailingText });
+
+  return segments;
+}
+
+function getParagraphAlign(pTag: string): "center" | undefined {
+  return /text-align:\s*center/i.test(pTag) ? "center" : undefined;
+}
+
+function joinSegmentText(segments: ContentInlineSegment[]) {
+  return segments.map((segment) => segment.value).join("");
+}
+
+function buildTextBlock(pTag: string, pContent: string): ContentBlock | null {
+  const segments = parseInlineContent(pContent);
+  const plainText = joinSegmentText(segments);
+  if (!plainText || plainText === "*" || plainText === "•" || plainText === "·") return null;
+
+  const align = getParagraphAlign(pTag);
+  const hasLinks = segments.some((segment) => segment.type === "link");
+  const onlyLink =
+    hasLinks && segments.length === 1 && segments[0].type === "link" && segments[0].href;
+
+  if (onlyLink) {
+    return {
+      type: "link",
+      value: segments[0].value,
+      href: segments[0].href,
+      align,
+    };
+  }
+
+  const isStrong =
+    pContent.includes("<strong") ||
+    pContent.includes("font-weight: bold") ||
+    pContent.includes("font-weight:bold");
+
+  if (hasLinks) {
+    if (isStrong && plainText.length < 50 && align === "center") {
+      return { type: "subheading", segments, align };
+    }
+    return { type: "paragraph", segments, align };
+  }
+
+  if (isStrong && plainText.length < 50) {
+    return { type: "subheading", value: plainText, align };
+  }
+  if (plainText.startsWith("*") && plainText.endsWith("*")) {
+    return { type: "quote", value: plainText.slice(1, -1), align };
+  }
+  return { type: "paragraph", value: plainText, align };
+}
+
+function getBlockPlainText(block: ContentBlock): string {
+  if (block.segments?.length) return joinSegmentText(block.segments);
+  return typeof block.value === "string" ? block.value : "";
 }
 
 function isXiumiusRawImageImg(tag: string): boolean {
@@ -88,7 +183,7 @@ function shouldIncludeXiumiusSrc(src: string, rawImageOnly: boolean): boolean {
 
 function parseXiumiusHtmlPass(raHtml: string, rawImageOnly: boolean): ContentBlock[] {
   const contentList: ContentBlock[] = [];
-  const tokenRegex = /<p[^>]*>([\s\S]*?)<\/p>|<img[^>]+>/gi;
+  const tokenRegex = /<p([^>]*)>([\s\S]*?)<\/p>|<img[^>]+>/gi;
   let match: RegExpExecArray | null;
   while ((match = tokenRegex.exec(raHtml)) !== null) {
     if (match[0].startsWith("<img")) {
@@ -100,7 +195,8 @@ function parseXiumiusHtmlPass(raHtml: string, rawImageOnly: boolean): ContentBlo
       continue;
     }
 
-    const pContent = match[1];
+    const pTag = match[1] || "";
+    const pContent = match[2];
     const imgTagMatch = pContent.match(/<img[^>]+>/i);
     if (imgTagMatch) {
       if (!shouldIncludeXiumiusImg(imgTagMatch[0], rawImageOnly)) continue;
@@ -111,20 +207,8 @@ function parseXiumiusHtmlPass(raHtml: string, rawImageOnly: boolean): ContentBlo
       continue;
     }
 
-    const text = stripHtml(pContent);
-    if (!text || text === "*" || text === "•" || text === "·") continue;
-
-    const isStrong =
-      pContent.includes("<strong") ||
-      pContent.includes("font-weight: bold") ||
-      pContent.includes("font-weight:bold");
-    if (isStrong && text.length < 50) {
-      contentList.push({ type: "subheading", value: text });
-    } else if (text.startsWith("*") && text.endsWith("*")) {
-      contentList.push({ type: "quote", value: text.slice(1, -1) });
-    } else {
-      contentList.push({ type: "paragraph", value: text });
-    }
+    const block = buildTextBlock(pTag, pContent);
+    if (block) contentList.push(block);
   }
   return contentList;
 }
@@ -186,23 +270,32 @@ function parseYonyouArticleHtml(html: string): ContentBlock[] {
       continue;
     }
     const tag = m[1].toLowerCase();
+    const attrs = m[2] || "";
     const inner = m[3];
     const imgInBlock = inner.match(/<img[^>]+src=["']([^"']+)["']/i);
     if (imgInBlock) {
       blocks.push({ type: "image", value: imgInBlock[1] });
       continue;
     }
+
+    if (tag === "p") {
+      const block = buildTextBlock(attrs, inner);
+      if (block) blocks.push(block);
+      continue;
+    }
+
     const text = stripHtml(inner);
     if (!text) continue;
     if (tag === "h2" || tag === "h3") blocks.push({ type: "subheading", value: text });
-    else blocks.push({ type: "paragraph", value: text });
   }
 
   if (blocks.length === 0) {
-    const paragraphs = essayHtml.match(/<p[^>]*>[\s\S]*?<\/p>/gi) || [];
+    const paragraphs = essayHtml.match(/<p([^>]*)>([\s\S]*?)<\/p>/gi) || [];
     for (const p of paragraphs) {
-      const text = stripHtml(p);
-      if (text) blocks.push({ type: "paragraph", value: text });
+      const match = p.match(/<p([^>]*)>([\s\S]*?)<\/p>/i);
+      if (!match) continue;
+      const block = buildTextBlock(match[1] || "", match[2]);
+      if (block) blocks.push(block);
     }
   }
   return blocks;
@@ -218,11 +311,31 @@ async function fetchArticleContent(url: string): Promise<ContentBlock[]> {
   throw new Error(`Unsupported URL: ${url}`);
 }
 
+function isVideoUrl(url: string): boolean {
+  return /\.mp4(\?|$)/i.test(url);
+}
+
 function fallbackContent(summary: string, imageUrl: string): ContentBlock[] {
   const blocks: ContentBlock[] = [];
-  if (summary) blocks.push({ type: "paragraph", value: summary });
-  if (imageUrl) blocks.push({ type: "image", value: imageUrl });
+  if (summary) {
+    for (const line of summary.split("\n").filter((part) => part.trim())) {
+      blocks.push({ type: "paragraph", value: line });
+    }
+  }
+  if (imageUrl) {
+    blocks.push(
+      isVideoUrl(imageUrl)
+        ? { type: "video", value: imageUrl }
+        : { type: "image", value: imageUrl }
+    );
+  }
   return blocks;
+}
+
+function resolveSection(row: ExcelRow): ArticleSection {
+  if (row.section === "红帆领航") return "红帆领航";
+  if (row.section === "音像纪实") return "音像纪实";
+  return "光影速递";
 }
 
 function normalizeDate(raw: string) {
@@ -232,6 +345,7 @@ function normalizeDate(raw: string) {
     "4月": "2026-04",
     "5月": "2026-05",
     "6月": "2026-06",
+    "7月": "2026-07",
   };
   return monthMap[raw] || "2026";
 }
@@ -247,8 +361,13 @@ function slugify(title: string, index: number) {
 
 function estimateReadTime(content: ContentBlock[]) {
   const text = content
-    .filter((b) => b.type === "paragraph" || b.type === "quote" || b.type === "subheading")
-    .map((b) => (typeof b.value === "string" ? b.value : b.value.join(" ")))
+    .filter((b) =>
+      b.type === "paragraph" ||
+      b.type === "quote" ||
+      b.type === "subheading" ||
+      b.type === "link"
+    )
+    .map((b) => getBlockPlainText(b))
     .join("");
   const minutes = Math.max(2, Math.min(12, Math.ceil(text.length / 400)));
   return `${minutes}分钟`;
@@ -263,7 +382,7 @@ function trimArticleContent(title: string, content: ContentBlock[]): ContentBloc
   if (!marker) return content;
 
   const cutIndex = content.findIndex(
-    (block) => typeof block.value === "string" && block.value.includes(marker)
+    (block) => getBlockPlainText(block).includes(marker)
   );
   return cutIndex === -1 ? content : content.slice(0, cutIndex);
 }
@@ -283,6 +402,7 @@ function normalizeLightShadowIntro(
   const introIdx = content.findIndex((block) => block.type === "paragraph");
   if (introIdx === -1) return content;
   const block = content[introIdx];
+  if (block.segments?.length) return content;
   if (typeof block.value !== "string") return content;
   const normalized = [...content];
   normalized[introIdx] = {
@@ -294,26 +414,31 @@ function normalizeLightShadowIntro(
 
 async function main() {
   const rows: ExcelRow[] = JSON.parse(fs.readFileSync(EXCEL_JSON, "utf-8"));
-  const editorialRow = rows.find((r) => r.title === "卷首语");
+  const editorialRow = rows.find((r) => r.title === "卷首语" || r.title.includes("卷首语"));
   const coverRow = rows.find((r) => r.section === "主封面");
   const articleRows = rows.filter(
-    (r) => r.title && r.title !== "卷首语" && r.section !== "主封面"
+    (r) => r.title && r.title !== "卷首语" && !r.title.includes("卷首语") && r.section !== "主封面"
   );
 
   const articles: Article[] = [];
   let redSailCount = 0;
   let lightCount = 0;
+  let mediaCount = 0;
 
   for (let i = 0; i < articleRows.length; i++) {
     const row = articleRows[i];
-    const section = row.section === "红帆领航" ? "红帆领航" : "光影速递";
+    const section = resolveSection(row);
     const id =
       section === "红帆领航"
         ? `red-sail-${++redSailCount}`
-        : `light-shadow-${++lightCount}`;
+        : section === "音像纪实"
+          ? `media-record-${++mediaCount}`
+          : `light-shadow-${++lightCount}`;
 
     let content: ContentBlock[] = [];
-    if (row.url) {
+    if (section === "音像纪实" && isVideoUrl(row.imageUrl)) {
+      content = fallbackContent(row.summary, row.imageUrl);
+    } else if (row.url) {
       try {
         console.log(`Fetching [${id}] ${row.title}`);
         content = await fetchArticleContent(row.url);
@@ -354,6 +479,13 @@ async function main() {
   }
 
   const magazineMeta = {
+    volumeId: "vol-02",
+    volumeLabel: "Vol. 02",
+    issue: "2026年七一特刊（总第02期）",
+    publishDate: "2026年7月",
+    features: {
+      mediaRecord: true,
+    },
     editorial: editorialRow?.summary || "",
     editorialImageUrl: editorialRow?.imageUrl || coverRow?.imageUrl || "",
     coverImageUrl: coverRow?.imageUrl || editorialRow?.imageUrl || "",

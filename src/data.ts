@@ -1,10 +1,27 @@
-import articlesData from "./generated/articles.json";
-import magazineMeta from "./generated/magazine-meta.json";
+import vol01Articles from "./generated/vol-01/articles.json";
+import vol01Meta from "./generated/vol-01/magazine-meta.json";
+import vol02Articles from "./generated/vol-02/articles.json";
+import vol02Meta from "./generated/vol-02/magazine-meta.json";
 import { withBasePath } from "./lib/base-path";
+
+export interface ContentInlineSegment {
+  type: "text" | "link";
+  value: string;
+  href?: string;
+}
+
+export interface ArticleContentBlock {
+  type: "paragraph" | "quote" | "subheading" | "highlight" | "image" | "video" | "bulletList" | "link";
+  value?: string | string[];
+  segments?: ContentInlineSegment[];
+  href?: string;
+  align?: "center";
+  caption?: string;
+}
 
 export interface Article {
   id: string;
-  section: "光影速递" | "红帆领航";
+  section: "光影速递" | "红帆领航" | "音像纪实";
   tag: "图片新闻" | "图片纪事" | "党建活动" | "党务工作" | "园区生活" | "党政学习";
   title: string;
   date: string;
@@ -15,11 +32,7 @@ export interface Article {
   readTime: string;
   views: number;
   likes: number;
-  content: {
-    type: "paragraph" | "quote" | "subheading" | "highlight" | "image" | "bulletList";
-    value: string | string[];
-    caption?: string;
-  }[];
+  content: ArticleContentBlock[];
   quiz: {
     question: string;
     options: string[];
@@ -30,17 +43,93 @@ export interface Article {
   aiSuggestions: string[];
 }
 
-export const magazineInfo = {
-  title: "智绘用友红电子期刊",
-  issue: "2026年第01期（总第01期）",
-  date: "2026年6月",
-  editorial: magazineMeta.editorial,
+export type MagazineVolumeId = "vol-01" | "vol-02";
+
+export interface MagazineFeatures {
+  mediaRecord: boolean;
+}
+
+interface MagazineMetaFile {
+  volumeId: MagazineVolumeId;
+  volumeLabel: string;
+  issue: string;
+  publishDate?: string;
+  features?: Partial<MagazineFeatures>;
+  editorial: string;
+  editorialImageUrl: string;
+  coverImageUrl: string;
+}
+
+export interface MagazineBundle {
+  volumeId: MagazineVolumeId;
+  volumeLabel: string;
+  features: MagazineFeatures;
+  articles: Article[];
+  magazineInfo: {
+    title: string;
+    issue: string;
+    date: string;
+    editorial: string;
+  };
+  magazineAssets: {
+    editorialImageUrl: string;
+    coverImageUrl: string;
+  };
+}
+
+function defaultVolumeFeatures(volumeId: MagazineVolumeId): MagazineFeatures {
+  return {
+    mediaRecord: volumeId === "vol-02",
+  };
+}
+
+function defaultPublishDate(volumeId: MagazineVolumeId): string {
+  return volumeId === "vol-01" ? "2026年6月" : "2026年7月";
+}
+
+function buildMagazineBundle(
+  meta: MagazineMetaFile,
+  articlesData: unknown[]
+): MagazineBundle {
+  const defaults = defaultVolumeFeatures(meta.volumeId);
+  return {
+    volumeId: meta.volumeId,
+    volumeLabel: meta.volumeLabel,
+    features: {
+      mediaRecord: meta.features?.mediaRecord ?? defaults.mediaRecord,
+    },
+    articles: articlesData as Article[],
+    magazineInfo: {
+      title: "智绘用友红电子期刊",
+      issue: meta.issue,
+      date: meta.publishDate || defaultPublishDate(meta.volumeId),
+      editorial: meta.editorial,
+    },
+    magazineAssets: {
+      editorialImageUrl: meta.editorialImageUrl,
+      coverImageUrl: meta.coverImageUrl,
+    },
+  };
+}
+
+const magazineVolumes: Record<MagazineVolumeId, MagazineBundle> = {
+  "vol-01": buildMagazineBundle(vol01Meta as MagazineMetaFile, vol01Articles),
+  "vol-02": buildMagazineBundle(vol02Meta as MagazineMetaFile, vol02Articles),
 };
 
-export const magazineAssets = {
-  editorialImageUrl: magazineMeta.editorialImageUrl,
-  coverImageUrl: magazineMeta.coverImageUrl,
-};
+export function resolveVolumeId(raw: string | null): MagazineVolumeId {
+  if (raw === "01" || raw === "vol-01") return "vol-01";
+  return "vol-02";
+}
+
+export function getMagazineVolume(id: MagazineVolumeId): MagazineBundle {
+  return magazineVolumes[id];
+}
+
+/** 当前默认卷（Vol. 02） */
+export const articles = magazineVolumes["vol-02"].articles;
+export const magazineInfo = magazineVolumes["vol-02"].magazineInfo;
+export const magazineAssets = magazineVolumes["vol-02"].magazineAssets;
 
 export interface CommonInfoEntry {
   label: string;
@@ -104,5 +193,3 @@ export const commonInfoSections: CommonInfoSection[] = [
     remoteSource: "transfer-guide",
   },
 ];
-
-export const articles: Article[] = articlesData as Article[];
