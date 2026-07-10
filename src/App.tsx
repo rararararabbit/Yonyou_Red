@@ -797,15 +797,17 @@ export default function App() {
       {/* HEADER BLOCK - Full Width Sticky Header */}
       <header className="sticky top-0 z-30 w-full border-b border-[#E9E4DB] bg-[#FAF9F6]/95 backdrop-blur-md transition-all shadow-sm">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4 flex-nowrap whitespace-nowrap w-full min-w-0">
-            <div className="flex items-center gap-3 flex-nowrap whitespace-nowrap shrink-0">
-              <span className="text-[9px] font-mono tracking-[0.3em] text-[#A59D90] uppercase shrink-0">RED SAIL PUBLISHING</span>
-              <span className="h-[1px] w-8 bg-[#E9E4DB] shrink-0" />
-              <span className="text-[9px] bg-red-primary text-white font-mono tracking-widest px-1.5 py-0.5 uppercase shrink-0">
+          <div className="flex items-center justify-between gap-2 sm:gap-4 w-full min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 overflow-hidden">
+              <span className="max-[420px]:hidden text-[8px] sm:text-[9px] font-mono tracking-[0.12em] sm:tracking-[0.3em] text-[#A59D90] uppercase truncate min-w-0">
+                RED SAIL PUBLISHING
+              </span>
+              <span className="hidden sm:block h-[1px] w-8 bg-[#E9E4DB] shrink-0" />
+              <span className="text-[8px] sm:text-[9px] bg-red-primary text-white font-mono tracking-wider sm:tracking-widest px-1 sm:px-1.5 py-0.5 uppercase shrink-0">
                 {volumeLabel}
               </span>
             </div>
-            <p className="editorial-note font-bold whitespace-nowrap shrink-0">
+            <p className="editorial-note font-bold whitespace-nowrap shrink-0 text-[10px] sm:text-[11px] leading-tight">
               主编：用友党委·研发党支部
             </p>
           </div>
@@ -956,7 +958,7 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[55] bg-black/60 flex items-center justify-center px-4 sm:px-6 py-6"
+            className="fixed inset-0 z-[55] bg-black/60 flex items-center justify-center p-0"
             onClick={() => setVol01PreviewOpen(false)}
           >
             <motion.div
@@ -964,7 +966,7 @@ export default function App() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 24, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="bg-[#FAF9F6] w-[90vw] h-[90vh] flex flex-col border border-gray-200 shadow-2xl overflow-hidden"
+              className="bg-[#FAF9F6] w-full h-full max-w-none max-h-none flex flex-col shadow-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="bg-red-primary px-4 py-3 text-white flex items-center justify-between border-b-4 border-gold-primary shrink-0">
